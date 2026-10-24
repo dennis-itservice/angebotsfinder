@@ -451,6 +451,7 @@ def create_app(
                               f"Datenverzeichnis des Containers ist nicht beschreibbar.")
         if not created:
             return RedirectResponse(url="/login", status_code=303)
+        access.throttle.success(ip)
         logger.info("Zugang eingerichtet für Benutzer %r", name)
         response = RedirectResponse(url="/", status_code=303)
         set_session_cookie(response, request, access.sessions.create())

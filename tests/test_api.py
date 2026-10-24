@@ -244,6 +244,13 @@ def test_einrichtung_ist_ebenfalls_gebremst(neu):
     assert not neu.app_.state.access.store.configured
 
 
+def test_gelungene_einrichtung_vergisst_die_fehlversuche(neu):
+    for _ in range(4):
+        einrichten(neu, "AAAA-BBBB-CCCC")
+    assert einrichten(neu, neu.code).headers["location"] == "/"
+    assert neu.app_.state.access.throttle._attempts == {}
+
+
 @pytest.mark.parametrize("herkunft,erwartet", [
     ("same-site", 403), ("cross-site", 403), ("same-origin", 303), ("none", 303), (None, 303),
 ])
