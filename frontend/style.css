@@ -1,0 +1,485 @@
+:root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-hover: #222633;
+    --border: #2a2e3d;
+    --text: #e1e4ed;
+    --text-muted: #8b8fa3;
+    --ok: #22c55e;
+    --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.1);
+    --error: #ef4444;
+    --error-bg: rgba(239, 68, 68, 0.1);
+    --unknown: #8b8fa3;
+    --unknown-bg: rgba(107, 114, 128, 0.12);
+    --info: #38bdf8;
+    --info-bg: rgba(56, 189, 248, 0.12);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* SVG-Symbole: Farbe kommt vom Text drumherum. */
+.icon {
+    width: 1.3em;
+    height: 1.3em;
+    fill: currentColor;
+    flex-shrink: 0;
+}
+
+header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.header-icon {
+    width: 2rem;
+    height: 2rem;
+    color: var(--info);
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.header-actions {
+    position: absolute;
+    right: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.icon-btn {
+    background: none;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.icon-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+main {
+    flex: 1;
+    padding: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 3rem;
+}
+
+/* Fusszeile: Version links, Aktualisierung in der Mitte */
+footer {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+footer .app-version {
+    justify-self: start;
+}
+
+footer #last-update {
+    text-align: center;
+}
+
+/* Statuszeile oben: blau Treffer, grau nichts gefunden, gelb Problem */
+.status-line {
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+
+.status-line.ok { color: var(--ok); }
+.status-line.info { color: var(--info); }
+.status-line.warning { color: var(--warning); }
+.status-line.error { color: var(--error); }
+.status-line.unknown { color: var(--unknown); }
+
+.hint {
+    background: var(--info-bg);
+    color: var(--info);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+}
+
+.summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.summary-value.info { color: var(--info); }
+
+.summary-value.small {
+    font-size: 1rem;
+    line-height: 2.4rem;
+}
+
+.summary-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.section-title {
+    margin: 0.75rem 0 -0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--surface-hover);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.action-btn.primary {
+    background: var(--info);
+    border-color: var(--info);
+    color: var(--bg);
+    font-weight: 600;
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.action-btn[hidden] {
+    display: none;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+}
+
+.link-btn:hover {
+    color: var(--error);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: var(--text);
+}
+
+.push-card {
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Tabellen: Merkliste und Geraete */
+.table-wrap {
+    overflow-x: auto;
+}
+
+.list-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.list-table th,
+.list-table td {
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.list-table th {
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.list-table tr:last-child td {
+    border-bottom: none;
+}
+
+.list-table tr.problem td {
+    background: rgba(239, 68, 68, 0.06);
+}
+
+.muted {
+    color: var(--text-muted);
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.small {
+    font-size: 0.78rem;
+}
+
+/* Treffer und Einstellungen als Liste: bricht in jeder Breite um, statt am
+   Handy seitlich aus dem Bild zu laufen wie eine breite Tabelle. */
+.offer-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.offer-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+
+.offer-row:last-child,
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.offer-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.offer-product {
+    font-weight: 600;
+}
+
+.offer-price {
+    text-align: right;
+    white-space: nowrap;
+    font-size: 1rem;
+}
+
+.offer-badge {
+    display: inline-block;
+    margin-left: 0.3rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    background: var(--unknown-bg);
+    color: var(--text-muted);
+}
+
+.offer-badge.current {
+    background: var(--info-bg);
+    color: var(--info);
+}
+
+.offer-list a,
+.form-card a {
+    color: var(--info);
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 0.75rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+/* Anmeldung und Einrichtung */
+.form-container {
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.form-card h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.form-card label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.form-card input {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-card input:focus {
+    border-color: var(--info);
+}
+
+.form-card button {
+    margin-top: 0.5rem;
+    padding: 0.65rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--info);
+    color: var(--bg);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.form-card button:hover {
+    opacity: 0.9;
+}
+
+.form-card code {
+    overflow-wrap: anywhere;
+}
+
+.form-error {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--error);
+    background: var(--error-bg);
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+@media (max-width: 480px) {
+    .info-row {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+    }
+
+    /* Schmale Handys: Titel links, Knoepfe rechts - zentriert stiessen sie bei
+       360 px an den Titel. */
+    header {
+        padding: 1.25rem 1rem 0.75rem;
+        text-align: left;
+    }
+    .header-bar {
+        justify-content: space-between;
+    }
+    .header-actions {
+        position: static;
+    }
+    header h1 {
+        font-size: 1.5rem;
+        justify-content: flex-start;
+    }
+    .form-card {
+        padding: 1.25rem;
+    }
+}

@@ -1,0 +1,38 @@
+name: angebotsfinder
+
+services:
+  angebotsfinder:
+    build: .
+    # Bei jedem "Erstellen" bzw. "docker compose up" neu bauen. Ohne diese
+    # Zeile nimmt der Synology Container Manager ein vorhandenes Image einfach
+    # wieder her, ein Update kaeme dann nie an.
+    pull_policy: build
+    container_name: angebotsfinder
+    restart: unless-stopped
+    ports:
+      - "8098:8098"
+    environment:
+      - TZ=Europe/Berlin
+      # Optional: Kontaktadresse fuer die Push-Dienste (Google, Apple, Mozilla).
+      # Das # entfernen und die eigene E-Mail-Adresse eintragen.
+      # - ANGEBOTSFINDER_PUSH_CONTACT=mailto:du@example.de
+    volumes:
+      # Merkliste: config/angebote.yaml im Projektordner. Nur lesbar
+      # eingebunden. Ganzes Verzeichnis statt einzelner Datei: Editoren, die
+      # beim Speichern eine neue Datei anlegen, waeren sonst fuer den
+      # Container unsichtbar.
+      - ./config:/app/config:ro
+      # Zugang (Passwort-Hash), Push-Schluessel, Geraeteliste und Stand der
+      # Pruefung. Benanntes Volume: ueberlebt Neustart, Neubau und Updates.
+      - angebotsfinder-daten:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  angebotsfinder-daten:
+    # Fester Name: Das Volume bleibt dasselbe, auch wenn der Projektordner
+    # anders heisst oder umzieht.
+    name: angebotsfinder-daten

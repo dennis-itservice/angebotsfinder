@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==9.1.1
+# Testclient von Starlette 1.x; mit dem alten httpx gibt es eine Deprecation-Warnung.
+httpx2==2.13.1

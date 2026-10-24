@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f1117">
+    <title>Angebotsfinder – Einrichtung</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/static/style.css?v=__VERSION__">
+</head>
+<body>
+    <header>
+        <h1><svg class="icon header-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg> Angebotsfinder</h1>
+    </header>
+    <main class="form-container">
+        <form class="form-card" method="POST" action="/setup">
+            <h2>Einrichtung</h2>
+            <p class="muted small">
+                Lege fest, mit welchem Benutzernamen und Passwort du dich künftig anmeldest.
+                Das Passwort braucht mindestens 10 Zeichen.
+            </p>
+            __FEHLER__
+            <label for="username">Benutzername</label>
+            <input type="text" id="username" name="username" value="__BENUTZER__" autocomplete="username"
+                   autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="64" required autofocus>
+            <label for="password">Passwort</label>
+            <input type="password" id="password" name="password" autocomplete="new-password"
+                   minlength="10" maxlength="256" required>
+            <label for="password2">Passwort wiederholen</label>
+            <input type="password" id="password2" name="password2" autocomplete="new-password"
+                   minlength="10" maxlength="256" required>
+            <label for="code">Einrichtungscode</label>
+            <input type="text" id="code" name="code" autocomplete="off" autocapitalize="characters"
+                   autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required>
+            <p class="muted small">
+                Den Code schreibt der Container beim Start in sein Protokoll, in die Zeile
+                „Einrichtungscode“. Auf einer Synology: Container Manager → Container →
+                angebotsfinder → Details → Protokoll. Auf der Kommandozeile:
+                <code>docker compose logs angebotsfinder</code>
+            </p>
+            <button type="submit">Zugang anlegen</button>
+        </form>
+    </main>
+</body>
+</html>

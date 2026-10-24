@@ -1,0 +1,126 @@
+{
+ "_quelle": "api.marktguru.de/api/v1/offers/search?q=monster&zipCode=97421, abgerufen am 10.10.2026, gekuerzt",
+ "totalResults": 4,
+ "results": [
+  {
+   "id": 25189233,
+   "brand": {
+    "name": "Monster Energy"
+   },
+   "advertisers": [
+    {
+     "name": "Lidl"
+    }
+   ],
+   "product": {
+    "name": "Energy Drink"
+   },
+   "description": "HINWEIS: MIT LIDL PLUS APP Taurin- und koffeinhaltig. Je 0,5 l zzgl. 0.25 Pfand  Normalpreis: 1.59",
+   "price": 0.75,
+   "oldPrice": null,
+   "referencePrice": 1.5,
+   "quantity": 1.0,
+   "volume": 0.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-11T22:00:00Z",
+     "to": "2026-10-17T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": true
+  },
+  {
+   "id": 25295737,
+   "brand": {
+    "name": "Spin Master"
+   },
+   "advertisers": [
+    {
+     "name": "ALDI SÜD"
+    }
+   ],
+   "product": {
+    "name": "Monster Jam Truck"
+   },
+   "description": "Details im Prospekt",
+   "price": 4.99,
+   "oldPrice": null,
+   "referencePrice": 4.99,
+   "quantity": 1.0,
+   "volume": 1.0,
+   "unit": {
+    "shortName": "Stk"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-25T23:00:00Z",
+     "to": "2026-10-31T22:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25280077,
+   "brand": {
+    "name": "Activa Tierfutter"
+   },
+   "advertisers": [
+    {
+     "name": "DAS FUTTERHAUS"
+    }
+   ],
+   "product": {
+    "name": "Friends Belloween Monster"
+   },
+   "description": "Details im Prospekt",
+   "price": 4.99,
+   "oldPrice": null,
+   "referencePrice": 4.99,
+   "quantity": 1.0,
+   "volume": 1.0,
+   "unit": {
+    "shortName": "Stk"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-09T22:00:00Z",
+     "to": "2026-10-17T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25133773,
+   "brand": {
+    "name": "Ferrero"
+   },
+   "advertisers": [
+    {
+     "name": "Netto Marken-Discount"
+    }
+   ],
+   "product": {
+    "name": "Mon Chéri"
+   },
+   "description": "HINWEIS: MIT NETTO PLUS APP 2.49 € 157 g versch. Sorten",
+   "price": 2.79,
+   "oldPrice": null,
+   "referencePrice": 17.77,
+   "quantity": 1.0,
+   "volume": 0.157,
+   "unit": {
+    "shortName": "kg"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  }
+ ]
+}

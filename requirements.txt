@@ -1,0 +1,19 @@
+# Versionen bewusst gepinnt. Stand 24.10.2026, pip-audit ohne Befund. Wie in
+# Sentinel 2.3.1, nur aiohttp 3.14.5 statt 3.14.3 (dort 8 Luecken, behoben in 3.14.4).
+fastapi==0.142.2
+starlette==1.7.0
+uvicorn==0.54.0
+pyyaml==6.0.3
+
+# Web-Push und seine direkten Abhaengigkeiten. cryptography liefert auch
+# Argon2id fuer den Passwort-Hash.
+pywebpush==2.5.0
+py-vapid==1.9.4
+http-ece==1.2.1
+cryptography==50.0.2
+aiohttp==3.14.5
+requests==2.34.2
+
+# marktguru liefert die Gueltigkeit in UTC. Zeitzonen-Daten als Paket, damit
+# Europe/Berlin ueberall gleich aufgeloest wird, auch unter Windows (Tests).
+tzdata==2026.5

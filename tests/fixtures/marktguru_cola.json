@@ -1,0 +1,576 @@
+{
+ "_quelle": "api.marktguru.de/api/v1/offers/search?q=cola&zipCode=97421, abgerufen am 10.10.2026, gekuerzt",
+ "totalResults": 19,
+ "results": [
+  {
+   "id": 25302077,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "ALDI SÜD"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "oder Fanta Versch. Sorten; teilweise koffeinhaltig; 18 x 0,33 l = 5,94- l-Packung; zzgl. Pfand 18 x 0.25 = 4.50",
+   "price": 7.99,
+   "oldPrice": null,
+   "referencePrice": 1.35,
+   "quantity": 18.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-22T22:00:00Z",
+     "to": "2026-10-24T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25139653,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "HINWEIS: MIT APP 0,10 € REWE BONUS koffeinhaltig, je 6 x 0,33-l-Fl.-Pckg. zzgl. 1.50 Pfand.",
+   "price": 3.99,
+   "oldPrice": null,
+   "referencePrice": 2.02,
+   "quantity": 6.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25139618,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "versch. Sorten, teilw. koffeinhaltig, je 1,25-l-Fl. zzgl. 0.25 Pfand",
+   "price": 1.19,
+   "oldPrice": null,
+   "referencePrice": 0.95,
+   "quantity": 1.0,
+   "volume": 1.25,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25126348,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "nahkauf"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "HINWEIS: MIT APP 0,10 € REWE BONUS je 6 x 0,33-l-Fl. zzgl. 1.50 Pfand.",
+   "price": 3.99,
+   "oldPrice": null,
+   "referencePrice": 2.02,
+   "quantity": 6.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25067683,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "Lidl"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "FANTA COCA-COLA in versch. Sorten. Teilweise koffeinhaltig. Je 18x 0,33 l zzgl. 4.50 Pfand; Standardpackung: 0,33l",
+   "price": 8.49,
+   "oldPrice": null,
+   "referencePrice": 1.43,
+   "quantity": 18.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-07T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25212243,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "EDEKA Foodservice"
+    }
+   ],
+   "product": {
+    "name": "Erfrischungsgetränke"
+   },
+   "description": "HINWEIS: NUR FÜR GROSSHÄNDLER versch. Sorten teilweise koffeinhaltig 12 x 1 l Flasche je Kasten zzgl. Pfand",
+   "price": 9.79,
+   "oldPrice": null,
+   "referencePrice": 0.82,
+   "quantity": 12.0,
+   "volume": 1.0,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-07T22:00:00Z",
+     "to": "2026-10-14T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25178608,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "Lidl"
+    }
+   ],
+   "product": {
+    "name": "Limonade"
+   },
+   "description": "HINWEIS: MIT LIDL PLUS APP 0.99 € Versch. Sorten Je 1.25 l zzgl. 0.25 Pfand",
+   "price": 1.19,
+   "oldPrice": null,
+   "referencePrice": 0.95,
+   "quantity": 1.0,
+   "volume": 1.25,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-11T22:00:00Z",
+     "to": "2026-10-17T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25148993,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Original Taste"
+   },
+   "description": "HINWEIS: MIT APP 0.10 € REWE BONUS koffeinhaltig, je 6 x 0,33-l-Fl.-Pckg. zzgl. 1.50 Pfand.",
+   "price": 3.99,
+   "oldPrice": null,
+   "referencePrice": 2.02,
+   "quantity": 6.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25148448,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Original Taste"
+   },
+   "description": "versch. Sorten, teilw. koffeinhaltig, je 1,25-l-Fl. zzgl. 0.25 Pfand",
+   "price": 1.19,
+   "oldPrice": null,
+   "referencePrice": 0.95,
+   "quantity": 1.0,
+   "volume": 1.25,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25112303,
+   "brand": {
+    "name": "Coca-Cola"
+   },
+   "advertisers": [
+    {
+     "name": "PENNY"
+    }
+   ],
+   "product": {
+    "name": "Friendspack"
+   },
+   "description": "Koffeinhaltiges Erfrischungs- getränk, versch. Sorten, zzgl. 2.50 Pfand, je 10 x 0,33 l",
+   "price": 5.99,
+   "oldPrice": null,
+   "referencePrice": 1.82,
+   "quantity": 10.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-07T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25279842,
+   "brand": {
+    "name": "Comet Beverages"
+   },
+   "advertisers": [
+    {
+     "name": "PENNY"
+    }
+   ],
+   "product": {
+    "name": "cola"
+   },
+   "description": "oder Cola Mix Versch. Sorten, Erfrischungsgetränk, tw. koffeinhaltig, zzgl. 0.25 Pfand, je 1,5 l",
+   "price": 0.49,
+   "oldPrice": null,
+   "referencePrice": 0.33,
+   "quantity": 1.0,
+   "volume": 1.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25196943,
+   "brand": {
+    "name": "ja!"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Cola"
+   },
+   "description": "0,33-Liter-Dose",
+   "price": 0.29,
+   "oldPrice": null,
+   "referencePrice": 0.88,
+   "quantity": 1.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25196928,
+   "brand": {
+    "name": "ja!"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Cola Mix"
+   },
+   "description": "versch. Sorten, 1,5-Liter Flasche",
+   "price": 0.49,
+   "oldPrice": null,
+   "referencePrice": 0.33,
+   "quantity": 1.0,
+   "volume": 1.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25196923,
+   "brand": {
+    "name": "ja!"
+   },
+   "advertisers": [
+    {
+     "name": "REWE"
+    }
+   ],
+   "product": {
+    "name": "Cola Zero"
+   },
+   "description": "versch Sorten, 1,5-Liter Flasche",
+   "price": 0.49,
+   "oldPrice": null,
+   "referencePrice": 0.33,
+   "quantity": 1.0,
+   "volume": 1.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25151963,
+   "brand": {
+    "name": "Oettinger"
+   },
+   "advertisers": [
+    {
+     "name": "Netto Marken-Discount"
+    }
+   ],
+   "product": {
+    "name": "5,0 Original Whisky & Cola"
+   },
+   "description": "HINWEIS: MIT NETTO PLUS APP 1.29 € RTD oder Vodka Energy 0,33 l 10 % Vol. zzgl. Pfand 0.25",
+   "price": 1.49,
+   "oldPrice": null,
+   "referencePrice": 4.52,
+   "quantity": 1.0,
+   "volume": 0.33,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25133093,
+   "brand": {
+    "name": "Leikeim"
+   },
+   "advertisers": [
+    {
+     "name": "Netto Marken-Discount"
+    }
+   ],
+   "product": {
+    "name": "Cola Mix Zero"
+   },
+   "description": "oder Cola-Mix koffeinhaltig 20 x 0,5 Liter zzgl. Pfand 4.50",
+   "price": 8.99,
+   "oldPrice": null,
+   "referencePrice": 0.9,
+   "quantity": 20.0,
+   "volume": 0.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-09T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25115398,
+   "brand": {
+    "name": "Pepsi"
+   },
+   "advertisers": [
+    {
+     "name": "nahkauf"
+    }
+   ],
+   "product": {
+    "name": "Pepsi Cola"
+   },
+   "description": "koffeinhaltig, versch. Sorten, je 0,5-l-Fl. zzgl. 0.25 Pfand",
+   "price": 0.67,
+   "oldPrice": null,
+   "referencePrice": 1.34,
+   "quantity": 1.0,
+   "volume": 0.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25229248,
+   "brand": {
+    "name": "Ustersbacher"
+   },
+   "advertisers": [
+    {
+     "name": "EDEKA"
+    }
+   ],
+   "product": {
+    "name": "Flumi Cola-Mix"
+   },
+   "description": "oder Limonade verschiedene Sorten 20 x 0,5 Liter Kasten + 3,10 Pfand,",
+   "price": 6.49,
+   "oldPrice": null,
+   "referencePrice": 0.65,
+   "quantity": 20.0,
+   "volume": 0.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  },
+  {
+   "id": 25218628,
+   "brand": {
+    "name": "Ustersbacher"
+   },
+   "advertisers": [
+    {
+     "name": "EDEKA"
+    }
+   ],
+   "product": {
+    "name": "Flumi Cola-Mix"
+   },
+   "description": "oder Limonade verschiedene Sorten 20 x0,5 Liter Kasten + 3,10 Pfand,",
+   "price": 6.49,
+   "oldPrice": null,
+   "referencePrice": 0.65,
+   "quantity": 20.0,
+   "volume": 0.5,
+   "unit": {
+    "shortName": "l"
+   },
+   "validityDates": [
+    {
+     "from": "2026-10-04T22:00:00Z",
+     "to": "2026-10-10T21:59:00Z"
+    }
+   ],
+   "requiresLoyalityMembership": false
+  }
+ ]
+}

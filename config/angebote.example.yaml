@@ -1,0 +1,59 @@
+# Merkliste des Angebotsfinders: Welche Produkte willst du in welchen
+# Geschäften im Angebot finden?
+#
+# Das ist die Vorlage. Kopiere sie im selben Ordner nach angebote.yaml und
+# trage dort deine Produkte und Geschäfte ein. Der Angebotsfinder liest die
+# Datei jede Minute. Nach einer Änderung prüft er sofort, ein Neustart ist
+# nicht nötig.
+#
+# Ein Tippfehler legt nichts lahm. Die Seite zeigt ihn gelb an und prüft mit
+# dem letzten gültigen Stand weiter.
+#
+# Regeln für diese Datei:
+# - Zeilen mit # am Anfang sind Kommentare und werden ignoriert.
+# - Die Einrückung zählt. Nimm Leerzeichen, keine Tabulatoren.
+# - Postleitzahl und Uhrzeit stehen in Anführungszeichen.
+
+# Deine Postleitzahl. Sie bestimmt die Prospekte, denn viele Ketten haben
+# regionale Angebote.
+zip_code: "97421"
+
+# Geschäfte, so geschrieben wie bei marktguru.de. Groß- und Kleinschreibung
+# ist egal. Die Angebotsseite nennt unter "Weitere Geschäfte", welche es in
+# den Suchergebnissen noch gibt, zum Beispiel ALDI SÜD, Kaufland, Netto
+# Marken-Discount, PENNY oder nahkauf. "EDEKA Foodservice" ist der Großhandel,
+# nicht der EDEKA-Markt.
+# Eine leere Liste heißt: alle Geschäfte. Dann so schreiben:  shops: []
+shops:
+  - EDEKA
+  - REWE
+  - Lidl
+  # LOGO Getränkemarkt gibt es nicht bei marktguru. Der Angebotsfinder holt
+  # die Angebote dann direkt bei logo-getraenke.de, für die Märkte in den
+  # eckigen Klammern. Die Namen so schreiben wie in der Marktliste dort.
+  # Zum Einschalten das # vor der nächsten Zeile entfernen:
+  # - LOGO: [Schweinfurt, Sennfeld]
+
+# Produkte. Der Name muss als ganzes Wort im Angebot stehen. "Monster Energy"
+# findet also keine "Monster Jam"-Spielzeugtrucks und "Coca-Cola" keine
+# Pepsi-Cola.
+# pack ist freiwillig und grenzt die Packung ein, zum Beispiel 12x1l, 6x1,5l,
+# 24x0,33l oder 24x330ml.
+products:
+  - name: Monster Energy
+  - name: Coca-Cola
+    pack: 12x1l
+
+# Wann geprüft wird: Wochentage (mo di mi do fr sa so) und Uhrzeit.
+# Die meisten Prospekte wechseln am Sonntag oder Montag.
+schedule:
+  days: [mo, mi, fr, so]
+  time: "08:00"
+
+# So viele Tage im Voraus zeigt der Angebotsfinder Angebote, die erst später
+# beginnen.
+days_ahead: 14
+
+# Push-Nachricht aufs Handy bei neuen Treffern, jedes Angebot nur einmal.
+# false heißt: nur auf der Seite anzeigen.
+push: true
