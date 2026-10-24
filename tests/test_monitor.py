@@ -284,6 +284,39 @@ def test_haengender_abruf_bricht_nach_zeitlimit_ab(tmp_path, monkeypatch):
     assert len(monitor.client.aufrufe) == 1
 
 
+def test_abbruch_durch_das_gesamte_zeitlimit_zaehlt_als_fehler(tmp_path):
+    """Bricht das Zeitlimit des ganzen Durchlaufs (Runner, 30 s) den Abruf ab, gilt
+    die Wartezeit von einer Stunde trotzdem. Vorher fragte die Schleife dann jede
+    Minute neu an (Befund der Review vom 24.10.2026)."""
+    monitor, _ = bauen(tmp_path, client=FakeClient(haengt=True))
+
+    async def mit_zeitlimit():
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(monitor.check(), timeout=0.05)
+
+    asyncio.run(mit_zeitlimit())
+    assert monitor.state.errors == {"marktguru": "marktguru: Abruf abgebrochen (Zeitlimit)"}
+    gespeichert = json.loads((tmp_path / "data" / "angebote.json").read_text(encoding="utf-8"))
+    assert gespeichert["errors"] == monitor.state.errors
+
+    monitor.client.haengt = False
+    ergebnis = pruefen(monitor, SAMSTAG + timedelta(minutes=1))
+    assert len(monitor.client.aufrufe) == 1             # keine neue Anfrage nach einer Minute
+    assert ergebnis.status is ServiceStatus.WARNING
+    assert "Abruf abgebrochen (Zeitlimit)" in ergebnis.message
+    pruefen(monitor, SAMSTAG + timedelta(minutes=60))
+    assert len(monitor.client.aufrufe) == 2             # nach einer Stunde wieder
+
+
+def test_zustand_ist_nur_fuer_den_container_lesbar(tmp_path):
+    import os
+    monitor, _ = bauen(tmp_path)
+    pruefen(monitor)
+    if os.name != "nt":
+        assert oct(os.stat(tmp_path / "data" / "angebote.json").st_mode & 0o777) == "0o600"
+    assert [p.name for p in (tmp_path / "data").iterdir()] == ["angebote.json"]
+
+
 def test_programmfehler_wird_angezeigt_statt_abzustuerzen(tmp_path):
     monitor, _ = bauen(tmp_path, client=FakeClient(fehler=KeyError("results")))
     ergebnis = pruefen(monitor)

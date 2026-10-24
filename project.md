@@ -70,6 +70,7 @@ Argon2id (OpenSSL-Implementierung, im `.so` nachgesehen).
 | `backend/marktguru.py`, `backend/logo.py` | Abfrage der Quellen (aus Sentinel, nur User-Agent geändert) |
 | `backend/push.py` | `PushStore`, `PushSender` mit Versand im Hintergrund (aus Sentinel, ohne Alarm-Logik) |
 | `backend/settings.py` | Pfade und Umgebungsvariablen |
+| `backend/files.py` | `write_atomic()` für Zugang, Push-Schlüssel, Geräteliste und Zustand |
 | `frontend/` | `index.html`/`app.js` (Angebote), `push.html`/`push.js`, `login.html`, `setup.html`, `sw.js`, `manifest.webmanifest`, `icons/` |
 
 Ablauf: Der `Runner` ruft jede Minute `AngeboteMonitor.check()` mit Zeitlimit 30 s.
@@ -78,6 +79,13 @@ Merkliste, nach einem Fehler stündlich oder auf Knopfdruck (Details in Sentinel
 `sentinel_project.md`, Abschnitt „Monitor-Typ angebote“, gilt hier genauso). Neue
 Treffer liefert `check()` als `notifications`, der `Runner` gibt sie an
 `PushSender.send_in_background()`. Statuswechsel stehen im Protokoll, nicht jeder Lauf.
+
+Schleife und Knopf „Jetzt prüfen“ laufen über eine Sperre im `Runner` nacheinander.
+Das Warten darauf zählt nicht zum Zeitlimit. Bricht das Zeitlimit einen Abruf ab, gilt
+das als Fehler der Quellen (`Abruf abgebrochen (Zeitlimit)`), und die Wartezeit von
+einer Stunde greift. Beides war in der ersten Fassung falsch (Review, siehe unten).
+Dateien im Datenverzeichnis schreibt `backend/files.write_atomic()`: Nachbardatei,
+`fsync`, Rechte 0600, umbenennen.
 
 ---
 
@@ -111,20 +119,42 @@ Treffer liefert `check()` als `notifications`, der `Runner` gibt sie an
   Groß/klein egal (Handys schreiben den ersten Buchstaben groß). Passwort 10 bis 256
   Zeichen, nicht gleich dem Benutzernamen, sonst keine Kompositionsregeln.
 - **Anmeldung:** Hash-Prüfung im Thread, höchstens eine gleichzeitig (Semaphore), damit
-  eine Flut von Anmeldeversuchen weder Speicher noch Prozessor sprengt. Bei falschem
-  Namen wird trotzdem gerechnet (keine Auskunft über Namen per Antwortzeit). 1 s
-  Verzögerung und Protokolleintrag bei jedem Fehlversuch, Formular höchstens 4 KB.
+  eine Flut von Anmeldeversuchen weder Speicher noch Prozessor sprengt. Warten mehr als
+  8 Anmeldungen, wird sofort abgelehnt („?belegt=1“), statt den Besitzer minutenlang in
+  die Schlange zu stellen. Bei falschem Namen wird trotzdem gerechnet (keine Auskunft
+  über Namen per Antwortzeit). 1 s Verzögerung und Protokolleintrag bei jedem
+  Fehlversuch, Formular höchstens 4 KB.
+- **Sperre je IP** (`auth.LoginThrottle`): höchstens 5 Fehlversuche in 15 Minuten,
+  danach „Zu viele Fehlversuche“ ohne Hash-Prüfung, auch für das richtige Passwort.
+  Gilt für Anmeldung und Einrichtungscode. Ein Versuch zählt schon beim Start und wird
+  erst bei Erfolg vergessen, Prüfen und Zählen ohne `await` dazwischen. Sonst kämen
+  viele gleichzeitige Anfragen alle durch. Höchstens 10.000 IPs im Speicher.
+- **Proxy-Angaben nur aus privaten Netzen:** Uvicorn übernimmt `X-Forwarded-Proto` und
+  `-For` nur von `127.0.0.1`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` und
+  `fc00::/7`, also vom Proxy auf demselben Gerät (Docker-Bridge) oder im Heimnetz. Mit
+  `*` nahm Uvicorn den linken Eintrag von `X-Forwarded-For`, den ein Angreifer selbst
+  setzt, und die Sperre je IP wäre wirkungslos gewesen (am 24.10.2026 mit Uvicorns
+  `_TrustedHosts` nachgeprüft: `6.6.6.6, 203.0.113.9` ergibt mit `*` die 6.6.6.6, mit
+  den privaten Netzen die 203.0.113.9). Geräte im Heimnetz können die Angaben weiter
+  fälschen, das ist hingenommen.
+- **Herkunft schreibender Anfragen:** Für alles außer GET/HEAD/OPTIONS muss
+  `Sec-Fetch-Site` fehlen, `same-origin` oder `none` sein, sonst 403. SameSite=Lax
+  schützt nicht vor Nachbar-Subdomains derselben Domain (etwa `grafana.example.de` →
+  `angebote.example.de`). Fehlt der Kopf (alter Browser, curl), wird nicht blockiert.
 - **Sessions** im Speicher wie in Sentinel, aber **7 Tage** statt 24 h: Am Handy wäre
   die tägliche Anmeldung lästig, nach einem Neustart sind sie ohnehin weg.
-- **Secure-Cookie automatisch:** `secure` hängt an `request.url.scheme`. Uvicorn
-  übernimmt `X-Forwarded-Proto` und `-For` von jedem Absender
-  (`--forwarded-allow-ips "*"`). Gefälscht ändert das nur die IP im Protokoll oder
-  macht das eigene Cookie unbrauchbar, deshalb vertretbar. Über `http://` im Heimnetz
-  klappt die Anmeldung weiter, über den HTTPS-Proxy bekommt das Cookie `Secure`.
+- **Secure-Cookie automatisch:** `secure` hängt an `request.url.scheme`, also an
+  `X-Forwarded-Proto` vom Proxy. Über `http://` im Heimnetz klappt die Anmeldung
+  weiter, über den HTTPS-Proxy bekommt das Cookie `Secure`.
 - **Zurücksetzen:** `python -m backend.auth zuruecksetzen` im Container löscht
-  `zugang.json`. Die App merkt das beim nächsten Aufruf von `/login` oder `/setup`,
-  beendet alle Sessions und schreibt einen neuen Code ins Protokoll. Die README sagt
-  trotzdem „neu starten“, das ist für Nutzer eindeutiger.
+  `zugang.json`. Bei jeder Anfrage mit gültiger Session prüft die Middleware, ob die
+  Datei noch da ist (ein `stat`). Fehlt sie, enden alle Sessions sofort, und ein neuer
+  Code steht im Protokoll. Die README sagt trotzdem „neu starten“, das ist für Nutzer
+  eindeutiger.
+- **Einrichtungscode im Protokoll** über den eigenen Logger
+  `angebotsfinder.einrichtung` mit fester Stufe WARNING. Auch mit
+  `ANGEBOTSFINDER_LOG_LEVEL=ERROR` steht er dann im Protokoll. Eine unbekannte
+  Protokollstufe gilt als INFO, statt den Start zu verhindern.
 - **Beschädigte `zugang.json`** gilt wie keine: Einrichtung mit Code. Fremde kommen
   so nicht hinein.
 
@@ -249,17 +279,19 @@ python -m venv /c/Dev/venvs/angebotsfinder                 # einmalig
 Starten gegen die echten Quellen, Daten und Merkliste außerhalb des Projekts:
 
 ```bash
-FORWARDED_ALLOW_IPS='*' PYTHONUTF8=1 \
-ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote.yaml \
+FORWARDED_ALLOW_IPS='127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7' \
+PYTHONUTF8=1 ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote.yaml \
 /c/Dev/venvs/angebotsfinder/Scripts/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8098
 # http://127.0.0.1:8098, Einrichtungscode steht in der Ausgabe
 ```
 
-- **`--forwarded-allow-ips "*"` geht unter Windows nicht auf der Kommandozeile:**
-  click (die Kommandozeile von Uvicorn) ersetzt `*` unter Windows durch die Dateien im
-  Ordner. Deshalb die Umgebungsvariable `FORWARDED_ALLOW_IPS`. Im Container (Linux)
-  gilt das nicht.
+- **Kein `*` auf der Kommandozeile unter Windows:** click (die Kommandozeile von
+  Uvicorn) ersetzt `*` unter Windows durch die Dateien im Ordner, Uvicorn startet dann
+  mit „unexpected extra arguments“. Die Umgebungsvariable `FORWARDED_ALLOW_IPS` umgeht
+  das. Im Container (Linux) gilt das nicht.
 - `PYTHONUTF8=1`, sonst schreibt Python unter Windows Umlaute im Protokoll als cp1252.
+- Proxy-Angaben ausprobieren: `curl -X POST -H "X-Forwarded-For: 6.6.6.6, 203.0.113.9" …`
+  von 127.0.0.1 erscheint im Protokoll als 203.0.113.9.
 - Push lässt sich über `http://127.0.0.1` ausprobieren, Browser behandeln localhost
   als sicher.
 - Sichtprüfung wie in Sentinel: Headless-Chrome per DevTools-Protokoll, Chrome per
@@ -270,11 +302,17 @@ ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote
 
 ## Geprüft (24.10.2026)
 
-- **Tests:** 286, alle grün (Python 3.14, Windows). Übernommen aus Sentinel:
+- **Tests:** 316, alle grün (Python 3.14, Windows). Übernommen aus Sentinel:
   Abgleich, marktguru, LOGO, Ablauf, Push-Versand (inklusive echtem verschlüsseltem
   Versand an einen lokalen Empfänger). Neu: Argon2id-Ablage, Einrichtungscode,
-  Einrichtung, Anmeldung, Zurücksetzen, Neustart mit gleichem Volume, Secure-Cookie
-  über HTTPS, CSP ohne Inline-Skripte, Wächter für Dockerfile und Compose-Datei.
+  Einrichtung, Anmeldung, Sperre je IP, Zurücksetzen, Neustart mit gleichem Volume,
+  Secure-Cookie über HTTPS, Herkunftsprüfung, CSP ohne Inline-Skripte, Wächter für
+  Dockerfile und Compose-Datei.
+- **Mutationstest 12/12** für die Korrekturen aus der Review: Jede Korrektur einzeln
+  zurückgenommen, jedes Mal scheitert ein Test. Im ersten Durchlauf überlebte die
+  Sperre im `Runner`, weil die Test-Attrappe keine eigene Sperre hatte wie der echte
+  Monitor. Danach angepasst. Skript: Muster, Ersatz, Testdatei je Korrektur, Dateien
+  per `read_bytes`/`write_bytes` zurückgeschrieben (wegen CRLF, siehe Windows-Fallen).
 - **Live lokal:** Uvicorn mit echter Abfrage. Vorlage: marktguru ohne Treffer (EDEKA,
   REWE, Lidl, Woche bis 24.10.). Mit LOGO (Schweinfurt, Sennfeld) und „Cola“ und
   „Bier“: 13 Treffer, LOGO-Woche 19.10.–24.10. mit 36 Angeboten. Die geänderte
@@ -284,12 +322,42 @@ ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote
   prüfen“, Push-Seite (Aktivieren-Knopf da), Abmelden, falsches Passwort, Anmeldung
   mit kleinem Anfangsbuchstaben. 360, 412 und 1280 px ohne waagerechtes Scrollen.
   Keine Konsolenfehler außer dem erwarteten 400 beim falschen Code, keine
-  CSP-Verstöße.
+  CSP-Verstöße. Nach den Korrekturen der Review noch einmal komplett: Der Browser
+  schickt `Sec-Fetch-Site: same-origin`, alle eigenen Formulare und Abrufe gehen
+  durch. „Jetzt prüfen“ kurz nach dem Start meldet richtig „Bitte noch 31 s warten“.
+- **Gegenproben mit curl:** `X-Forwarded-For: 6.6.6.6, 203.0.113.9` von 127.0.0.1 →
+  Protokoll nennt 203.0.113.9. `Sec-Fetch-Site: same-site` auf `/logout` → 403.
+  `/static/icons/../app.js` mit `--path-as-is` ohne Anmeldung → 303.
 - **Pakete:** `pip-audit` ohne Befund, Wheels für Linux amd64/arm64 vorhanden.
 - **Nicht geprüft:** Docker-Build und Container (kein Docker auf dem
   Entwicklungsrechner), Push-Zustellung auf einem echten Handy (in Sentinel mit
   demselben Code belegt), iPhone als Home-Bildschirm-App, die Synology-Schritte der
   README auf einer fremden NAS.
+
+---
+
+## Review vom 24.10.2026
+
+Nach dem ersten Commit (`81b9e33`) per `/code-review high` über das ganze Repo,
+Schwerpunkt Login, Ersteinrichtung, Docker und Push. 10 Befunde, alle geprüft und
+umgesetzt, jeder mit Test (Mutationstest 12/12, siehe „Geprüft“).
+
+| # | Befund | Gewicht | Umsetzung |
+|---|---|---|---|
+| 1 | Brach das Zeitlimit des Durchlaufs (30 s) einen Abruf ab, blieb `errors` leer. Die Wartezeit von einer Stunde griff nicht, die Schleife hätte jede Minute neu angefragt. Der Kommentar aus Sentinel versprach das Gegenteil | Hoch | Abbruch setzt einen Fehler je Quelle und speichert |
+| 2 | Die 1-s-Bremse wirkte bei parallelen Anfragen nicht (Pause nach der Semaphore, rund 40 Versuche/s am PC), die Warteschlange der Semaphore war unbegrenzt und hätte den Besitzer ausgesperrt | Hoch | Sperre je IP (5 in 15 min, Zählung beim Start), höchstens 8 wartende Anmeldungen |
+| 3 | `/static/icons/../app.js` (auch `%2e%2e`) passte zum offenen Anfang, StaticFiles lieferte Frontend-Dateien ohne Anmeldung. Nachgestellt: 200 statt 303 | Mittel | Nur normalisierte Pfade ohne `\` sind offen |
+| 4 | Nach `zuruecksetzen` galten Sessions weiter, bis jemand `/login` oder `/setup` aufrief | Mittel | Middleware prüft bei gültiger Session, ob `zugang.json` noch da ist |
+| 5 | „Jetzt prüfen“ wartete innerhalb des Zeitlimits auf die laufende Prüfung, brach ab und überschrieb das gute Ergebnis mit einem Fehler | Mittel | Sperre im `Runner`, Zeitlimit erst danach |
+| 6 | Mit `ANGEBOTSFINDER_LOG_LEVEL=ERROR` fehlte der Einrichtungscode im Protokoll | Niedrig | Eigener Logger mit fester Stufe, unbekannte Stufe gilt als INFO |
+| 7 | `--forwarded-allow-ips "*"`: Die IP im Protokoll war frei wählbar | Mittel | Nur private Netze vertraut (nachgeprüft, siehe Entscheidungen) |
+| 8 | SameSite=Lax schützt nicht vor Nachbar-Subdomains. Ein Formular von `grafana.example.de` hätte etwa ein fremdes Push-Gerät anmelden können | Mittel | `Sec-Fetch-Site` muss bei schreibenden Anfragen `same-origin`/`none` sein oder fehlen |
+| 9 | `PushStore.remove(endpoint=…)` entfernte nebenbei jedes Gerät ohne `id` | Niedrig | Bedingung je Angabe ausgeschrieben |
+| 10 | Atomares Schreiben dreimal kopiert, `monitor._save` ohne Rechte 0600 | Aufräumen | `backend/files.write_atomic()` mit `fsync` und 0600 |
+
+**Betrifft auch Sentinel** (gleicher Code): 1, 5, 8 und 9. Sentinel bindet keinen
+Präfix frei (3 entfällt) und vertraut nur `127.0.0.1` (7 entfällt). In Sentinels
+offenen Punkten eingetragen, dort nichts geändert.
 
 ---
 
@@ -302,6 +370,8 @@ ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote
 | Mittel | **Leserechte der Merkliste auf einer Synology** | Der Container liest `config/` als UID 10001. Ohne Leserecht „Jeder“ auf dem Ordner meldet die Seite „nicht lesbar“. Die README beschreibt den Fix. |
 | Niedrig | **marktguru und LOGO ohne offizielle Schnittstelle** | Wie in Sentinel. Ändert sich eine Seite, wird die Anzeige gelb. Korrekturen aus Sentinel übernehmen. |
 | Niedrig | **aiohttp in Sentinel** | Sentinel nutzt noch aiohttp 3.14.3 mit 8 bekannten Lücken. Betrifft dort nur den Client, trotzdem beim nächsten Sentinel-Update anheben. |
+| Niedrig | **Sperre je IP im Heimnetz** | Geräte im Heimnetz können `X-Forwarded-For` fälschen und so die Sperre umgehen. Hingenommen, weil es das eigene Netz ist. |
+| Niedrig | **Sessions nur im Speicher** | Nach jedem Neustart des Containers neu anmelden. Bewusst so, siehe Entscheidungen. |
 
 ---
 
@@ -309,4 +379,5 @@ ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ordner>/angebote
 
 | Datum | Änderung |
 |---|---|
+| 2026-10-24 | Review umgesetzt (10 Befunde): Sperre je IP und begrenzte Warteschlange bei der Anmeldung, Proxy-Angaben nur aus privaten Netzen, Herkunftsprüfung per `Sec-Fetch-Site`, kein Umweg über `/static/icons/..`, Sessions enden sofort nach dem Zurücksetzen, Zeitlimit-Abbruch zählt als Fehler, „Jetzt prüfen“ wartet vor dem Zeitlimit, Einrichtungscode unabhängig von der Protokollstufe, `write_atomic()`. 316 Tests, Mutationstest 12/12 |
 | 2026-10-24 | **1.0.0**: Erste Version aus Sentinel 2.3.1. Ersteinrichtung mit Einrichtungscode, Argon2id-Hash im Volume, Angebotsseite, Push mit iPhone-Manifest, CSP, README für Nutzer. 286 Tests |

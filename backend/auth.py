@@ -30,7 +30,6 @@ import logging
 import os
 import secrets
 import sys
-import tempfile
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -39,6 +38,8 @@ from pathlib import Path
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
+
+from backend.files import write_atomic
 
 logger = logging.getLogger("angebotsfinder.zugang")
 
@@ -196,16 +197,7 @@ class CredentialStore:
                               "password_hash": credentials.password_hash,
                               "created_at": credentials.created_at},
                              indent=2, ensure_ascii=False).encode("utf-8")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=self.path.parent, prefix=f".{self.path.name}.")
-        try:
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(content)
-            os.chmod(tmp, 0o600)
-            os.replace(tmp, self.path)
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        write_atomic(self.path, content)
         self.credentials = credentials
 
     def verify(self, username: str, password: str) -> bool:
@@ -259,6 +251,61 @@ class Sessions:
 
     def clear(self) -> None:
         self._tokens.clear()
+
+
+# --- Bremse gegen Durchprobieren -----------------------------------------------
+
+MAX_ATTEMPTS = 5
+ATTEMPT_WINDOW = 15 * 60
+MAX_TRACKED = 10_000
+
+
+class LoginThrottle:
+    """Je IP hoechstens MAX_ATTEMPTS Fehlversuche in ATTEMPT_WINDOW Sekunden.
+
+    Ein Versuch zaehlt schon beim Start und wird erst bei Erfolg vergessen. Sonst
+    kaemen viele gleichzeitige Anfragen alle durch, bevor der erste Fehlversuch
+    feststeht. Die IP ist verlaesslich, weil uvicorn X-Forwarded-For nur von
+    Proxys im privaten Netz uebernimmt (Dockerfile).
+    """
+
+    def __init__(self, max_attempts: int = MAX_ATTEMPTS, window: float = ATTEMPT_WINDOW,
+                 clock=time.monotonic, max_tracked: int = MAX_TRACKED):
+        self.max_attempts = max_attempts
+        self.window = window
+        self.clock = clock
+        self.max_tracked = max_tracked
+        self._attempts: dict[str, list[float]] = {}
+
+    def _recent(self, ip: str, now: float) -> list[float]:
+        recent = [t for t in self._attempts.get(ip, []) if now - t < self.window]
+        if recent:
+            self._attempts[ip] = recent
+        else:
+            self._attempts.pop(ip, None)
+        return recent
+
+    def retry_after(self, ip: str) -> float:
+        """0: Versuch erlaubt. Sonst die Sekunden, bis der aelteste Versuch verfaellt."""
+        now = self.clock()
+        recent = self._recent(ip, now)
+        if len(recent) < self.max_attempts:
+            return 0.0
+        return max(1.0, self.window - (now - recent[0]))
+
+    def attempt(self, ip: str) -> None:
+        now = self.clock()
+        if ip not in self._attempts and len(self._attempts) >= self.max_tracked:
+            # Viele verschiedene IPs: erst Abgelaufene aufraeumen, sonst die aelteste raus.
+            for other in list(self._attempts):
+                self._recent(other, now)
+            if len(self._attempts) >= self.max_tracked:
+                oldest = min(self._attempts, key=lambda k: self._attempts[k][-1])
+                del self._attempts[oldest]
+        self._attempts.setdefault(ip, []).append(now)
+
+    def success(self, ip: str) -> None:
+        self._attempts.pop(ip, None)
 
 
 # --- Zuruecksetzen per Kommandozeile -----------------------------------------

@@ -6,6 +6,7 @@ import asyncio
 import html
 import logging
 import platform
+import posixpath
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -38,11 +39,16 @@ CHECK_TIMEOUT = 30.0
 immer anhalten. Die Seite zeigte dann weiter den letzten Stand."""
 FORM_BODY_LIMIT = 4096
 FAILED_LOGIN_DELAY = 1.0
+MAX_WAITING_LOGINS = 8
+"""So viele Anmeldungen duerfen auf die Passwort-Pruefung warten. Mehr gleichzeitig
+gibt es nur bei einem Angriff, dann lieber gleich ablehnen als den Besitzer
+minutenlang in die Schlange zu stellen."""
 
 # Ohne Anmeldung erreichbar. Der Browser holt Service Worker, Manifest und
 # Symbole auch ohne Session. Sie enthalten nichts Schuetzenswertes.
 PUBLIC_PATHS = {"/login", "/setup", "/static/style.css", "/sw.js", "/manifest.webmanifest"}
 PUBLIC_PREFIXES = ("/static/icons/",)
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -58,6 +64,30 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
 logger = logging.getLogger("angebotsfinder")
+# Der Einrichtungscode muss im Protokoll stehen, auch wenn jemand die
+# Protokollstufe auf ERROR stellt. Sonst liesse sich nichts einrichten.
+setup_logger = logging.getLogger("angebotsfinder.einrichtung")
+setup_logger.setLevel(logging.WARNING)
+
+
+def is_public(path: str) -> bool:
+    """Ohne Anmeldung erlaubt? Nur normalisierte Pfade: Bei /static/icons/../app.js
+    passt der Anfang, StaticFiles liefert aber app.js aus (Befund der Review)."""
+    if path in PUBLIC_PATHS:
+        return True
+    return (path.startswith(PUBLIC_PREFIXES) and "\\" not in path
+            and posixpath.normpath(path) == path)
+
+
+def cross_site(request: Request) -> bool:
+    """Schreibende Anfrage von einer anderen Seite? SameSite=Lax schuetzt nicht vor
+    Nachbar-Subdomains derselben Domain (grafana.example.de -> angebote.example.de).
+    Browser melden die Herkunft in Sec-Fetch-Site. Fehlt der Kopf (alter Browser,
+    curl), wird nicht blockiert."""
+    if request.method in SAFE_METHODS:
+        return False
+    site = request.headers.get("sec-fetch-site")
+    return site is not None and site not in ("same-origin", "none")
 
 
 # --- Seiten ------------------------------------------------------------------
@@ -110,12 +140,24 @@ class Access:
     def __init__(self, data_dir: Path):
         self.store = auth.CredentialStore(data_dir)
         self.sessions = auth.Sessions()
+        self.throttle = auth.LoginThrottle()
         self.setup_code: str | None = None
         # Argon2id kostet Speicher und Zeit. Immer nur eine Rechnung auf einmal,
         # auch wenn jemand die Anmeldung mit vielen Anfragen gleichzeitig flutet.
         self._hashing = asyncio.Semaphore(1)
+        self._waiting = 0
         self._was_configured: bool | None = None
         self._logged_problem: str | None = None
+
+    def session_valid(self, token: str | None) -> bool:
+        if not self.sessions.valid(token):
+            return False
+        if not self.store.path.exists():
+            # Zugang wurde im laufenden Betrieb zurueckgesetzt: Alle Sessions
+            # enden sofort, nicht erst beim naechsten Aufruf der Anmeldung.
+            self.refresh()
+            return False
+        return True
 
     def refresh(self) -> None:
         """Zugang von der Platte lesen. Fehlt er, gibt es einen Einrichtungscode."""
@@ -135,9 +177,16 @@ class Access:
                 log_setup_code(self.setup_code)
         self._was_configured = configured
 
-    async def check_login(self, username: str, password: str) -> bool:
-        async with self._hashing:
-            return await asyncio.to_thread(self.store.verify, username, password)
+    async def check_login(self, username: str, password: str) -> bool | None:
+        """None: Gerade warten zu viele Anmeldungen, die Anfrage wird abgelehnt."""
+        if self._waiting >= MAX_WAITING_LOGINS:
+            return None
+        self._waiting += 1
+        try:
+            async with self._hashing:
+                return await asyncio.to_thread(self.store.verify, username, password)
+        finally:
+            self._waiting -= 1
 
     async def create(self, username: str, password: str) -> bool:
         """False, wenn inzwischen schon ein Zugang angelegt wurde."""
@@ -157,7 +206,7 @@ def log_setup_code(code: str) -> None:
                  "Die Seite im Browser öffnen, Benutzer und Passwort festlegen",
                  "und diesen Code eingeben. Er gilt bis zur Einrichtung.",
                  "=" * 64):
-        logger.warning(line)
+        setup_logger.warning(line)
 
 
 # --- Pruefschleife -----------------------------------------------------------
@@ -172,23 +221,28 @@ class Runner:
         self.timeout = timeout
         self.sender: PushSender | None = None
         self.result = CheckResult(status=ServiceStatus.UNKNOWN, message="Erste Prüfung läuft …")
+        # Schleife und Knopf "Jetzt pruefen" nacheinander. Das Warten hier zaehlt
+        # nicht zum Zeitlimit, sonst brach der Knopf ab, waehrend die Schleife
+        # pruefte, und ueberschrieb ihr Ergebnis mit einem Fehler (Befund der Review).
+        self._lock = asyncio.Lock()
 
     async def run_once(self) -> CheckResult:
-        try:
-            result = await asyncio.wait_for(self.monitor.check(), timeout=self.timeout)
-        except asyncio.CancelledError:
-            raise
-        except asyncio.TimeoutError:
-            result = CheckResult(status=ServiceStatus.ERROR,
-                                 message=f"Prüfung nach {self.timeout:.0f} s abgebrochen")
-        except Exception as exc:
-            logger.exception("Prüfung fehlgeschlagen")
-            result = CheckResult(status=ServiceStatus.ERROR,
-                                 message=f"Programmfehler: {type(exc).__name__}: {exc}")
-        if result.status != self.result.status:
-            # Nur Zustandswechsel, sonst stuende jede Minute eine Zeile im Protokoll.
-            logger.info("Stand: %s - %s", result.status.value, result.message)
-        self.result = result
+        async with self._lock:
+            try:
+                result = await asyncio.wait_for(self.monitor.check(), timeout=self.timeout)
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                result = CheckResult(status=ServiceStatus.ERROR,
+                                     message=f"Prüfung nach {self.timeout:.0f} s abgebrochen")
+            except Exception as exc:
+                logger.exception("Prüfung fehlgeschlagen")
+                result = CheckResult(status=ServiceStatus.ERROR,
+                                     message=f"Programmfehler: {type(exc).__name__}: {exc}")
+            if result.status != self.result.status:
+                # Nur Zustandswechsel, sonst stuende jede Minute eine Zeile im Protokoll.
+                logger.info("Stand: %s - %s", result.status.value, result.message)
+            self.result = result
         for payload in result.notifications:
             if self.sender is None:
                 logger.warning("Neue Angebote, aber Push ist nicht verfügbar: %s", payload["title"])
@@ -279,7 +333,11 @@ def create_app(
         async def dispatch(self, request: Request, call_next):
             path = request.url.path
             token = request.cookies.get(auth.COOKIE_NAME)
-            if path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES) or access.sessions.valid(token):
+            if cross_site(request):
+                logger.warning("%s %s von fremder Seite abgelehnt (%s)", request.method, path,
+                               client_host(request))
+                response = JSONResponse(status_code=403, content={"detail": "Fremde Herkunft"})
+            elif is_public(path) or access.session_valid(token):
                 response = await call_next(request)
             elif path.startswith("/api/"):
                 response = JSONResponse(status_code=401, content={"detail": "Nicht angemeldet"})
@@ -298,12 +356,23 @@ def create_app(
 
     # --- Anmeldung und Einrichtung -------------------------------------------
 
+    def blocked_text(wait: float) -> str:
+        minutes = max(1, round(wait / 60))
+        return (f"Zu viele Fehlversuche. Bitte in {minutes} Minute{'n' if minutes > 1 else ''} "
+                f"erneut versuchen.")
+
     @app.get("/login", include_in_schema=False)
     async def login_page(request: Request):
         access.refresh()
         if not access.store.configured:
             return RedirectResponse(url="/setup", status_code=303)
-        error = "Benutzername oder Passwort falsch." if "fehler" in request.query_params else ""
+        error = ""
+        if "gesperrt" in request.query_params:
+            error = blocked_text(access.throttle.retry_after(client_host(request)))
+        elif "belegt" in request.query_params:
+            error = "Gerade laufen sehr viele Anmeldungen. Bitte kurz warten und erneut versuchen."
+        elif "fehler" in request.query_params:
+            error = "Benutzername oder Passwort falsch."
         return page("login.html", error=error)
 
     @app.post("/login", include_in_schema=False)
@@ -313,12 +382,24 @@ def create_app(
             return RedirectResponse(url="/setup", status_code=303)
         form = await read_form(request)
         username = form.get("username", "")
-        if not await access.check_login(username, form.get("password", "")):
-            logger.warning("Anmeldung fehlgeschlagen für %r von %s", username[:64], client_host(request))
-            # Bremst automatisiertes Durchprobieren, ohne jemanden auszusperren.
+        ip = client_host(request)
+        # Pruefen und Zaehlen ohne await dazwischen: Gleichzeitige Anfragen sehen
+        # so jeden Versuch der anderen.
+        if access.throttle.retry_after(ip):
+            logger.warning("Anmeldung von %s gesperrt: zu viele Fehlversuche", ip)
+            return RedirectResponse(url="/login?gesperrt=1", status_code=303)
+        access.throttle.attempt(ip)
+        ok = await access.check_login(username, form.get("password", ""))
+        if ok is None:
+            logger.warning("Anmeldung von %s abgelehnt: zu viele gleichzeitig", ip)
+            return RedirectResponse(url="/login?belegt=1", status_code=303)
+        if not ok:
+            logger.warning("Anmeldung fehlgeschlagen für %r von %s", username[:64], ip)
+            # Bremst automatisiertes Durchprobieren zusaetzlich zur Sperre je IP.
             await asyncio.sleep(FAILED_LOGIN_DELAY)
             return RedirectResponse(url="/login?fehler=1", status_code=303)
-        logger.info("Angemeldet von %s", client_host(request))
+        access.throttle.success(ip)
+        logger.info("Angemeldet von %s", ip)
         response = RedirectResponse(url="/", status_code=303)
         set_session_cookie(response, request, access.sessions.create())
         return response
@@ -344,8 +425,14 @@ def create_app(
             return RedirectResponse(url="/login", status_code=303)
         form = await read_form(request)
         username = form.get("username", "")
+        ip = client_host(request)
+        wait = access.throttle.retry_after(ip)
+        if wait:
+            logger.warning("Einrichtung von %s gesperrt: zu viele Fehlversuche", ip)
+            return page("setup.html", 429, username=username, error=blocked_text(wait))
         if not auth.setup_code_matches(form.get("code", ""), access.setup_code):
-            logger.warning("Einrichtung mit falschem Code von %s", client_host(request))
+            access.throttle.attempt(ip)
+            logger.warning("Einrichtung mit falschem Code von %s", ip)
             await asyncio.sleep(FAILED_LOGIN_DELAY)
             return page("setup.html", 400, username=username,
                         error="Der Einrichtungscode stimmt nicht. Er steht im Protokoll des "

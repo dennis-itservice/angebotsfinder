@@ -101,6 +101,21 @@ def test_geraete_hinzufuegen_ersetzen_entfernen(tmp_path):
     assert store.devices() == []
 
 
+def test_entfernen_per_endpoint_trifft_nur_dieses_geraet(tmp_path):
+    """Ein Geraet ohne "id" (von Hand bearbeitete Liste) verschwand frueher mit,
+    sobald irgendein Geraet per Endpoint entfernt wurde (Befund der Review)."""
+    ohne_id = {**sub(f"{FCM}alt"), "label": "Altes Handy"}
+    (tmp_path / "push_devices.json").write_text(json.dumps([ohne_id]), encoding="utf-8")
+    store = PushStore(tmp_path)
+    store.open()
+    store.add(sub(), "Neues Handy", T0)
+    assert store.remove(endpoint=FCM) is True
+    assert [d["label"] for d in store.devices()] == ["Altes Handy"]
+    assert store.remove(id="gibtsnicht") is False
+    assert store.remove() is False
+    assert len(store.devices()) == 1
+
+
 def test_hoechstzahl_an_geraeten(tmp_path):
     store = PushStore(tmp_path)
     store.open()

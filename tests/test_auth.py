@@ -207,3 +207,43 @@ def test_alle_sessions_beenden():
     tokens = [sessions.create() for _ in range(3)]
     sessions.clear()
     assert not any(sessions.valid(t) for t in tokens)
+
+
+# --- Bremse gegen Durchprobieren -----------------------------------------------
+
+def test_fuenf_versuche_dann_15_minuten_pause():
+    uhr = Uhr()
+    bremse = auth.LoginThrottle(clock=uhr)
+    for _ in range(5):
+        assert bremse.retry_after("203.0.113.9") == 0
+        bremse.attempt("203.0.113.9")
+    assert bremse.retry_after("203.0.113.9") == pytest.approx(15 * 60)
+    assert bremse.retry_after("198.51.100.7") == 0        # andere IP ist frei
+    uhr.jetzt += 10 * 60
+    assert bremse.retry_after("203.0.113.9") == pytest.approx(5 * 60)
+    uhr.jetzt += 5 * 60
+    assert bremse.retry_after("203.0.113.9") == 0
+    assert "203.0.113.9" not in bremse._attempts           # aufgeraeumt
+
+
+def test_erfolg_vergisst_die_versuche():
+    bremse = auth.LoginThrottle(clock=Uhr())
+    for _ in range(4):
+        bremse.attempt("192.168.178.20")
+    bremse.success("192.168.178.20")
+    assert bremse.retry_after("192.168.178.20") == 0
+    assert bremse._attempts == {}
+
+
+def test_viele_ips_sprengen_den_speicher_nicht():
+    uhr = Uhr()
+    bremse = auth.LoginThrottle(clock=uhr, max_tracked=3)
+    for i in range(3):
+        bremse.attempt(f"203.0.113.{i}")
+        uhr.jetzt += 1
+    bremse.attempt("203.0.113.99")
+    assert len(bremse._attempts) == 3
+    assert "203.0.113.0" not in bremse._attempts           # die aelteste flog raus
+    uhr.jetzt += 15 * 60 + 5
+    bremse.attempt("198.51.100.1")                         # erst Abgelaufene raus
+    assert list(bremse._attempts) == ["198.51.100.1"]

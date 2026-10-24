@@ -22,6 +22,8 @@ USER angebote
 
 EXPOSE 8098
 # --forwarded-allow-ips: Hinter einem Reverse Proxy kommen Protokoll (https)
-# und Client-IP aus X-Forwarded-Proto/-For. Davon haengen nur das Secure-Flag
-# des Cookies und die IP im Protokoll ab, deshalb darf jeder Absender sie setzen.
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8098", "--forwarded-allow-ips", "*"]
+# und Client-IP aus X-Forwarded-Proto/-For. Uebernommen nur von Absendern im
+# privaten Netz, also vom Proxy auf demselben Geraet (Docker-Bridge) oder im
+# Heimnetz. Mit "*" haette uvicorn den linken Eintrag genommen, den ein
+# Angreifer selbst setzen kann, und die Sperre je IP waere wirkungslos.
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8098", "--forwarded-allow-ips", "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"]

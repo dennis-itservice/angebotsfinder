@@ -99,6 +99,14 @@ def test_einrichtungscode_steht_im_protokoll(tmp_path, caplog):
     assert f"Einrichtungscode: {code}" in caplog.text
 
 
+def test_einrichtungscode_auch_bei_leisem_protokoll(caplog, monkeypatch):
+    """ANGEBOTSFINDER_LOG_LEVEL=ERROR darf den Code nicht verschlucken (Befund der Review)."""
+    monkeypatch.setattr(logging.getLogger("angebotsfinder"), "level", logging.ERROR)
+    caplog.set_level(logging.DEBUG)
+    main.log_setup_code("ABCD-EFGH-JK23")
+    assert "Einrichtungscode: ABCD-EFGH-JK23" in caplog.text
+
+
 def test_einrichtung_mit_falschem_code(neu, caplog):
     antwort = einrichten(neu, "AAAA-BBBB-CCCC")
     assert antwort.status_code == 400
@@ -159,16 +167,18 @@ def test_zugang_ueberlebt_den_neustart(tmp_path):
 
 
 def test_zuruecksetzen_im_laufenden_betrieb(client, tmp_path, caplog):
-    """python -m backend.auth zuruecksetzen: danach neu einrichten, alte Sessions gelten nicht."""
+    """python -m backend.auth zuruecksetzen: Alte Sessions enden sofort, nicht erst
+    beim naechsten Aufruf der Anmeldeseite (Befund der Review). Danach neu einrichten."""
     anmelden(client)
     assert client.get("/api/angebote").status_code == 200
     auth.CredentialStore(tmp_path / "data").reset()
     with caplog.at_level(logging.WARNING, logger="angebotsfinder"):
-        assert client.get("/login").headers["location"] == "/setup"
+        assert client.get("/api/angebote").status_code == 401
     code = client.app_.state.access.setup_code
     assert code and f"Einrichtungscode: {code}" in caplog.text
-    assert client.get("/api/angebote").status_code == 401
+    assert client.get("/login").headers["location"] == "/setup"
     assert einrichten(client, code, user="berta").headers["location"] == "/"
+    assert client.get("/api/angebote").status_code == 200
 
 
 def test_datenverzeichnis_unbrauchbar(tmp_path):
@@ -193,6 +203,61 @@ def test_falsches_passwort(client, caplog):
     assert "Benutzername oder Passwort falsch" in client.get("/login?fehler=1").text
     assert "Benutzername oder Passwort falsch" not in client.get("/login").text
     assert client.get("/api/angebote").status_code == 401
+
+
+def test_nach_fuenf_fehlversuchen_ist_die_ip_gesperrt(tmp_path):
+    """Auch das richtige Passwort hilft dann nicht mehr. Andere IPs bleiben frei."""
+    app = app_mit(tmp_path)
+    with TestClient(app, follow_redirects=False, client=("203.0.113.9", 50000)) as angreifer:
+        for _ in range(5):
+            assert anmelden(angreifer, pw="falsch-falsch").headers["location"] == "/login?fehler=1"
+        assert anmelden(angreifer).headers["location"] == "/login?gesperrt=1"
+        assert "Zu viele Fehlversuche. Bitte in 15 Minuten" in angreifer.get("/login?gesperrt=1").text
+    with TestClient(app, follow_redirects=False, client=("192.168.178.20", 50000)) as besitzer:
+        assert anmelden(besitzer).headers["location"] == "/"
+
+
+def test_erfolgreiche_anmeldung_setzt_die_zaehlung_zurueck(client):
+    for _ in range(4):
+        anmelden(client, pw="falsch-falsch")
+    assert anmelden(client).headers["location"] == "/"
+    client.post("/logout")
+    for _ in range(4):
+        anmelden(client, pw="falsch-falsch")
+    assert anmelden(client).headers["location"] == "/"
+
+
+def test_volle_warteschlange_lehnt_ab_statt_zu_warten(client):
+    """Eine Flut von Anmeldungen soll den Besitzer nicht minutenlang warten lassen."""
+    client.app_.state.access._waiting = main.MAX_WAITING_LOGINS
+    assert anmelden(client).headers["location"] == "/login?belegt=1"
+    assert "sehr viele Anmeldungen" in client.get("/login?belegt=1").text
+    client.app_.state.access._waiting = 0
+    assert anmelden(client).headers["location"] == "/"
+
+
+def test_einrichtung_ist_ebenfalls_gebremst(neu):
+    for _ in range(5):
+        assert einrichten(neu, "AAAA-BBBB-CCCC").status_code == 400
+    gesperrt = einrichten(neu, neu.code)
+    assert gesperrt.status_code == 429 and "Zu viele Fehlversuche" in gesperrt.text
+    assert not neu.app_.state.access.store.configured
+
+
+@pytest.mark.parametrize("herkunft,erwartet", [
+    ("same-site", 403), ("cross-site", 403), ("same-origin", 303), ("none", 303), (None, 303),
+])
+def test_schreibende_anfragen_nur_von_der_eigenen_seite(client, herkunft, erwartet):
+    """SameSite=Lax laesst Nachbar-Subdomains derselben Domain durch. Sec-Fetch-Site
+    nicht (Befund der Review)."""
+    anmelden(client)
+    kopf = {"Sec-Fetch-Site": herkunft} if herkunft else {}
+    assert client.post("/logout", headers=kopf).status_code == erwartet
+    if erwartet == 403:
+        assert client.post("/api/angebote/pruefen", headers=kopf).status_code == 403
+        assert client.post("/login", data={"username": "anna", "password": PASSWORT},
+                           headers=kopf).status_code == 403
+        assert client.get("/api/angebote", headers=kopf).status_code == 200   # Lesen geht
 
 
 def test_anmelden_und_abmelden(client):
@@ -251,6 +316,16 @@ def test_was_ohne_anmeldung_erreichbar_ist(client):
     for pfad in ("/", "/push", "/static/app.js", "/static/index.html", "/docs", "/openapi.json"):
         assert client.get(pfad).status_code == 303, pfad
     assert client.get("/api/push/config").status_code == 401
+
+
+@pytest.mark.parametrize("pfad", [
+    "/static/icons/%2e%2e/app.js", "/static/icons/%2e%2e/index.html", "/static/icons/..%2fcommon.js",
+    "/static/icons/./../push.js", "/static/icons//icon.svg", "/static/icons/..%5capp.js",
+])
+def test_kein_umweg_ueber_die_offenen_symbole(client, pfad):
+    """/static/icons/../app.js passte frueher zum offenen Anfang, StaticFiles lieferte
+    dann app.js ohne Anmeldung aus (Befund der Review)."""
+    assert client.get(pfad).status_code == 303
 
 
 def test_seiten_nach_anmeldung(client):
@@ -333,6 +408,31 @@ def test_haengende_pruefung_wird_nach_zeitlimit_zum_fehler():
     assert ergebnis.status is ServiceStatus.ERROR
     assert ergebnis.message == "Prüfung nach 0 s abgebrochen"
     assert runner.result is ergebnis
+
+
+def test_jetzt_pruefen_waehrend_die_schleife_prueft():
+    """Das Warten auf die laufende Pruefung zaehlt nicht zum Zeitlimit. Vorher brach
+    der Knopf ab und ueberschrieb das gute Ergebnis mit einem Fehler (Befund der Review)."""
+    laeufe = []
+    sperre = asyncio.Lock()                         # wie im AngeboteMonitor
+
+    async def dauert():
+        async with sperre:
+            laeufe.append("start")
+            await asyncio.sleep(0.3)
+            return CheckResult(status=ServiceStatus.OK, message=f"Lauf {len(laeufe)}")
+
+    runner = main.Runner(Pruefung(dauert), timeout=0.5)
+
+    async def ablauf():
+        schleife = asyncio.create_task(runner.run_once())
+        await asyncio.sleep(0.05)
+        knopf = await runner.run_once()             # wartet 0,25 s, prueft dann 0,3 s
+        return await schleife, knopf
+
+    schleife, knopf = asyncio.run(ablauf())
+    assert (schleife.status, knopf.status) == (ServiceStatus.OK, ServiceStatus.OK)
+    assert runner.result is knopf and knopf.message == "Lauf 2"
 
 
 def test_programmfehler_wird_angezeigt():

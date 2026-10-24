@@ -28,8 +28,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -40,6 +38,7 @@ from backend.angebote import (SOURCE_LOGO, SOURCE_MARKTGURU, Match, Offer, Offer
                               Watchlist, WatchlistError, find_matches, format_day, last_slot,
                               next_slot, offers_from_logo, offers_from_marktguru, offers_payload,
                               parse_watchlist, read_watchlist_text, summary_message)
+from backend.files import write_atomic
 from backend.logo import OFFERS_URL as LOGO_URL
 from backend.logo import LogoClient, LogoError
 from backend.marktguru import OFFER_URL, MarktguruClient, MarktguruError
@@ -176,15 +175,7 @@ class AngeboteMonitor:
             return
         data = json.dumps(self.state.to_json(), indent=1, ensure_ascii=False).encode("utf-8")
         try:
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
-            fd, tmp = tempfile.mkstemp(dir=self.state_file.parent, prefix=f".{self.state_file.name}.")
-            try:
-                with os.fdopen(fd, "wb") as fh:
-                    fh.write(data)
-                os.replace(tmp, self.state_file)
-            except BaseException:
-                Path(tmp).unlink(missing_ok=True)
-                raise
+            write_atomic(self.state_file, data)
         except OSError as exc:
             # Ohne Ablage geht es im Speicher weiter. Nach einem Neustart kaeme
             # dann hoechstens eine Meldung doppelt.
@@ -282,8 +273,6 @@ class AngeboteMonitor:
         watchlist, state = self.watchlist, self.state
         now = self.clock()
         fingerprint = watchlist.fingerprint()
-        # Vor dem Abruf festhalten: bricht das Zeitlimit ihn ab, gilt trotzdem
-        # die Wartezeit - sonst wuerde jede Minute neu angefragt.
         state.last_attempt_at, state.attempt_fingerprint = now, fingerprint
         sources = self._sources(watchlist)
         # Nachholen betrifft nur die Quelle, die gefehlt hat.
@@ -292,7 +281,15 @@ class AngeboteMonitor:
         logger.info("Prüfe Angebote (%s): %d Produkt(e), PLZ %s, Quellen: %s", reason,
                     len(watchlist.products), watchlist.zip_code,
                     ", ".join(SOURCE_NAMES[s] for s in wanted))
-        results = await asyncio.gather(*(self._fetch(s, watchlist) for s in wanted))
+        try:
+            results = await asyncio.gather(*(self._fetch(s, watchlist) for s in wanted))
+        except asyncio.CancelledError:
+            # Abgebrochen vom Zeitlimit des ganzen Durchlaufs: Das zaehlt als Fehler
+            # der Quellen, damit die Wartezeit von einer Stunde greift. Sonst
+            # wuerde jede Minute neu angefragt (Befund der Review vom 24.10.2026).
+            state.errors = {s: f"{SOURCE_NAMES[s]}: Abruf abgebrochen (Zeitlimit)" for s in wanted}
+            self._save()
+            raise
         fresh = {s: offers for s, (offers, error) in zip(wanted, results) if error is None}
         state.errors = {s: error for s, (_, error) in zip(wanted, results) if error is not None}
         for source, error in state.errors.items():

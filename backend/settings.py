@@ -41,5 +41,10 @@ def push_contact() -> str:
     return contact
 
 
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+
 def log_level() -> str:
-    return (os.environ.get("ANGEBOTSFINDER_LOG_LEVEL") or "INFO").upper()
+    """Ein Tippfehler in der Protokollstufe soll den Start nicht verhindern."""
+    level = (os.environ.get("ANGEBOTSFINDER_LOG_LEVEL") or "INFO").strip().upper()
+    return level if level in LOG_LEVELS else "INFO"

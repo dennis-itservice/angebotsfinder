@@ -58,9 +58,19 @@ def test_container_laeuft_nicht_als_root_und_darf_seinen_code_nicht_aendern():
     assert "chown angebote:angebote /app/data" in DOCKERFILE
 
 
-def test_proxy_angaben_werden_uebernommen():
-    """Sonst bekommt das Cookie hinter dem HTTPS-Proxy kein Secure."""
-    assert '"--forwarded-allow-ips", "*"' in DOCKERFILE
+def test_proxy_angaben_nur_aus_dem_privaten_netz():
+    """Sonst bekommt das Cookie hinter dem HTTPS-Proxy kein Secure. Aber nicht "*":
+    Dann nimmt uvicorn die IP, die ein Angreifer selbst in X-Forwarded-For schreibt."""
+    from uvicorn.middleware.proxy_headers import _TrustedHosts
+
+    werte = re.search(r'"--forwarded-allow-ips", "([^"]+)"', DOCKERFILE).group(1)
+    assert werte != "*"
+    vertraut = _TrustedHosts(werte)
+    for proxy in ("127.0.0.1", "172.17.0.1", "172.20.0.1", "192.168.178.20", "10.0.0.5"):
+        assert proxy in vertraut, proxy                 # Docker-Bridge, Heimnetz
+    assert "203.0.113.9" not in vertraut
+    # Hinter dem Proxy: die echte IP, die der Proxy anhaengt, nicht die gefaelschte
+    assert vertraut.get_trusted_client_address("6.6.6.6, 203.0.113.9")[0] == "203.0.113.9"
 
 
 def test_merkliste_und_daten_bleiben_aus_repo_und_image():

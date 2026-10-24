@@ -21,13 +21,13 @@ import base64
 import hashlib
 import json
 import logging
-import os
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
+
+from backend.files import write_atomic
 
 logger = logging.getLogger("angebotsfinder.push")
 
@@ -100,7 +100,7 @@ class PushStore:
         else:
             self.vapid = Vapid02()
             self.vapid.generate_keys()
-            self._write(self.key_file, self.vapid.private_pem())
+            write_atomic(self.key_file, self.vapid.private_pem())
             logger.info("Neuer Push-Schlüssel erzeugt: %s", self.key_file)
 
         raw = self.vapid.public_key.public_bytes(
@@ -115,21 +115,9 @@ class PushStore:
                 logger.error("%s ist beschädigt, die Geräteliste beginnt leer", self.devices_file)
                 self._devices = []
 
-    def _write(self, path: Path, content: bytes) -> None:
-        """Atomar schreiben: erst in eine Nachbardatei, dann umbenennen."""
-        fd, tmp = tempfile.mkstemp(dir=self.data_dir, prefix=f".{path.name}.")
-        try:
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(content)
-            os.chmod(tmp, 0o600)
-            os.replace(tmp, path)
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True)
-            raise
-
     def _save(self) -> None:
-        self._write(self.devices_file,
-                    json.dumps(self._devices, indent=2, ensure_ascii=False).encode("utf-8"))
+        write_atomic(self.devices_file,
+                     json.dumps(self._devices, indent=2, ensure_ascii=False).encode("utf-8"))
 
     def devices(self) -> list[dict]:
         return [dict(d) for d in self._devices]
@@ -152,9 +140,14 @@ class PushStore:
         return dict(device)
 
     def remove(self, *, endpoint: str | None = None, id: str | None = None) -> bool:
+        def gemeint(device: dict) -> bool:
+            # Ausdruecklich je Angabe: Ein Geraet ohne "id" (von Hand bearbeitete
+            # Liste) darf beim Entfernen per Endpoint nicht mit verschwinden.
+            return ((endpoint is not None and device["endpoint"] == endpoint)
+                    or (id is not None and device.get("id") == id))
+
         vorher = len(self._devices)
-        self._devices = [d for d in self._devices
-                         if d["endpoint"] != endpoint and d.get("id") != id]
+        self._devices = [d for d in self._devices if not gemeint(d)]
         if len(self._devices) != vorher:
             self._save()
             return True
