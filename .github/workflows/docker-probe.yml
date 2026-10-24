@@ -1,0 +1,106 @@
+# Docker-Probelauf: Auf dem Entwicklungsrechner gibt es kein Docker. Dieser Lauf
+# baut und startet den Container wie in der README und prueft Ersteinrichtung,
+# Rechte, Neubau mit erhaltenem Zugang und Zuruecksetzen, dazu alle Tests unter
+# Linux mit Python 3.12. Startet nur von Hand: GitHub -> Actions -> Docker-Probe
+# -> Run workflow, oder: gh workflow run docker-probe.yml
+# Erster Lauf am 24.10.2026 bestanden.
+name: Docker-Probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tests unter Linux mit Python 3.12 (wie im Container)
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e PYTHONDONTWRITEBYTECODE=1 python:3.12-slim \
+            sh -c "pip install -q --root-user-action=ignore -r requirements-dev.txt && python -m pytest -p no:cacheprovider -q"
+
+      - name: Merkliste anlegen wie in der README
+        run: cp config/angebote.example.yaml config/angebote.yaml
+
+      - name: Bauen und starten (docker compose up -d --build)
+        run: |
+          docker compose version
+          docker compose up -d --build
+          docker image ls angebotsfinder*
+
+      - name: Ersteinrichtung mit dem Code aus dem Protokoll
+        run: |
+          set -eu
+          for i in $(seq 1 45); do curl -sf -o /dev/null http://127.0.0.1:8098/setup && break; sleep 2; done
+          docker compose logs angebotsfinder
+          code=$(docker compose logs angebotsfinder | grep -o 'Einrichtungscode: [A-Z0-9-]*' | tail -1 | cut -d' ' -f2)
+          echo "Code: $code"
+          test -n "$code"
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' http://127.0.0.1:8098/)" = "http://127.0.0.1:8098/login"
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' http://127.0.0.1:8098/login)" = "http://127.0.0.1:8098/setup"
+          falsch=$(curl -s -o /dev/null -w '%{http_code}' --data-urlencode username=Anna \
+            --data-urlencode 'password=Sommer-2026!' --data-urlencode 'password2=Sommer-2026!' \
+            --data-urlencode code=AAAA-BBBB-CCCC http://127.0.0.1:8098/setup)
+          echo "falscher Code: $falsch"; test "$falsch" = "400"
+          ziel=$(curl -s -c jar -o /dev/null -w '%{http_code} %{redirect_url}' --data-urlencode username=Anna \
+            --data-urlencode 'password=Sommer-2026!' --data-urlencode 'password2=Sommer-2026!' \
+            --data-urlencode "code=$code" http://127.0.0.1:8098/setup)
+          echo "Einrichtung: $ziel"; test "$ziel" = "303 http://127.0.0.1:8098/"
+          curl -sf -b jar http://127.0.0.1:8098/api/angebote | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); print(d['version'], d['status'], d['message'], d['watchlist_file'])"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8098/api/angebote)" = "401"
+
+      - name: Benutzer und Rechte im Container
+        run: |
+          set -eu
+          docker exec angebotsfinder id
+          test "$(docker exec angebotsfinder id -u)" = "10001"
+          docker exec angebotsfinder ls -la /app /app/data
+          docker exec angebotsfinder python -c "import os; m = os.stat('/app/data/zugang.json').st_mode & 0o777; print(oct(m)); assert m == 0o600"
+          docker exec angebotsfinder python -c "import os; m = os.stat('/app/data').st_mode & 0o777; print(oct(m)); assert m == 0o700"
+          if docker exec angebotsfinder sh -c 'echo x > /app/backend/x'; then echo "FEHLER: Code beschreibbar"; exit 1; fi
+          if docker exec angebotsfinder sh -c 'echo x > /app/config/x'; then echo "FEHLER: config beschreibbar"; exit 1; fi
+          docker exec angebotsfinder grep -c argon2id /app/data/zugang.json
+          if docker exec angebotsfinder grep -q 'Sommer-2026' /app/data/zugang.json; then echo "FEHLER: Klartext"; exit 1; fi
+
+      - name: Neubau, der Zugang bleibt erhalten
+        run: |
+          set -eu
+          docker compose down
+          docker volume ls | grep angebotsfinder-daten
+          docker compose up -d --build
+          for i in $(seq 1 45); do curl -sf -o /dev/null http://127.0.0.1:8098/login && break; sleep 2; done
+          if docker compose logs angebotsfinder | grep -q Einrichtungscode; then echo "FEHLER: Zugang weg"; exit 1; fi
+          ziel=$(curl -s -c jar2 -o /dev/null -w '%{http_code} %{redirect_url}' --data-urlencode username=anna \
+            --data-urlencode 'password=Sommer-2026!' http://127.0.0.1:8098/login)
+          echo "Anmeldung nach Neubau: $ziel"; test "$ziel" = "303 http://127.0.0.1:8098/"
+          test "$(curl -s -b jar2 -o /dev/null -w '%{http_code}' http://127.0.0.1:8098/api/angebote)" = "200"
+
+      - name: Proxy-Angaben, Herkunft, Pfade
+        run: |
+          set -eu
+          gw=$(docker exec angebotsfinder python -c "import socket; print(socket.gethostbyname(socket.gethostname()))")
+          echo "Container-IP: $gw"
+          curl -s -o /dev/null -H 'X-Forwarded-For: 6.6.6.6, 203.0.113.9' --data 'username=x&password=y' http://127.0.0.1:8098/login
+          docker compose logs angebotsfinder | grep 'Anmeldung fehlgeschlagen' | tail -1
+          docker compose logs angebotsfinder | grep 'Anmeldung fehlgeschlagen' | tail -1 | grep -q '203.0.113.9'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Sec-Fetch-Site: same-site' http://127.0.0.1:8098/logout)" = "403"
+          test "$(curl -s -o /dev/null -w '%{http_code}' --path-as-is http://127.0.0.1:8098/static/icons/../app.js)" = "303"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8098/static/icons/icon-192.png)" = "200"
+          ziel=$(curl -s -o /dev/null -D - -H 'X-Forwarded-Proto: https' --data-urlencode username=anna \
+            --data-urlencode 'password=Sommer-2026!' http://127.0.0.1:8098/login | grep -i '^set-cookie')
+          echo "$ziel"; echo "$ziel" | grep -qi 'secure'
+
+      - name: Zuruecksetzen per Kommandozeile wie in der README
+        run: |
+          set -eu
+          docker exec angebotsfinder python -m backend.auth zuruecksetzen
+          docker compose restart
+          for i in $(seq 1 45); do curl -sf -o /dev/null http://127.0.0.1:8098/setup && break; sleep 2; done
+          docker compose logs angebotsfinder | grep 'Einrichtungscode'
+
+      - name: Protokoll
+        if: always()
+        run: docker compose logs angebotsfinder

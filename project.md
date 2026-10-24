@@ -22,8 +22,9 @@ der beim ersten Aufruf festgelegt wird.
 - **Betrieb:** bei den Freunden, nicht bei Dennis. Es gibt keine Produktion, die
   Dennis betreut.
 - **Stand:** Version 1.0.0 vom 24.10.2026. Lokal mit Uvicorn gegen die echten
-  Quellen geprüft. Der Docker-Build selbst ist ungetestet, auf dem Entwicklungsrechner
-  gibt es kein Docker (siehe „Geprüft“ und „Offene Punkte“).
+  Quellen geprüft, der Container per GitHub Actions gebaut und durchgespielt
+  (Workflow „Docker-Probe“, siehe „Geprüft“). Auf dem Entwicklungsrechner gibt es kein
+  Docker.
 
 Auftrag von Dennis (24.10.2026): Freunde wollen das Angebote-Modul aus Sentinel mit
 eigenen Produkten und Geschäften. Neues Repo zum Teilen, nur das Nötige. Login mit
@@ -248,6 +249,7 @@ Ohne Session: Seiten → 303 auf `/login`, API → 401.
 
 ```
 angebotsfinder/
+├── .github/workflows/docker-probe.yml   # Docker-Probelauf, nur von Hand
 ├── Dockerfile, docker-compose.yml, .dockerignore
 ├── requirements.txt, requirements-dev.txt, pytest.ini
 ├── README.md                  # Anleitung für Nutzer
@@ -302,7 +304,7 @@ PYTHONUTF8=1 ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ord
 
 ## Geprüft (24.10.2026)
 
-- **Tests:** 316, alle grün (Python 3.14, Windows). Übernommen aus Sentinel:
+- **Tests:** 317, alle grün (Python 3.14, Windows). Übernommen aus Sentinel:
   Abgleich, marktguru, LOGO, Ablauf, Push-Versand (inklusive echtem verschlüsseltem
   Versand an einen lokalen Empfänger). Neu: Argon2id-Ablage, Einrichtungscode,
   Einrichtung, Anmeldung, Sperre je IP, Zurücksetzen, Neustart mit gleichem Volume,
@@ -329,10 +331,24 @@ PYTHONUTF8=1 ANGEBOTSFINDER_DATA_DIR=<ordner>/data ANGEBOTSFINDER_WATCHLIST=<ord
   Protokoll nennt 203.0.113.9. `Sec-Fetch-Site: same-site` auf `/logout` → 403.
   `/static/icons/../app.js` mit `--path-as-is` ohne Anmeldung → 303.
 - **Pakete:** `pip-audit` ohne Befund, Wheels für Linux amd64/arm64 vorhanden.
-- **Nicht geprüft:** Docker-Build und Container (kein Docker auf dem
-  Entwicklungsrechner), Push-Zustellung auf einem echten Handy (in Sentinel mit
-  demselben Code belegt), iPhone als Home-Bildschirm-App, die Synology-Schritte der
-  README auf einer fremden NAS.
+- **Docker** (GitHub Actions, Lauf 40132627031 am 24.10.2026, `ubuntu-latest`,
+  Docker Compose 2.38.2, amd64): `docker compose up -d --build` wie in der README,
+  Image 173 MB, Python 3.12.15. Volume `angebotsfinder-daten` mit festem Namen
+  angelegt. Einrichtungscode im Protokoll, falscher Code 400, richtiger Code 303 auf
+  `/` mit Session, `/api/angebote` mit echter Abfrage bei marktguru. Im Container
+  UID 10001, `zugang.json` 0600, `/app/data` 0700, `/app/backend` nicht beschreibbar,
+  `/app/config` nur lesbar, Hash `argon2id`, kein Klartext. **Neubau** (`down`, dann
+  `up -d --build`): kein neuer Einrichtungscode, Anmeldung mit dem alten Passwort
+  klappt. `X-Forwarded-For: 6.6.6.6, 203.0.113.9` → Protokoll 203.0.113.9.
+  `X-Forwarded-Proto: https` → Cookie mit `Secure`. `zuruecksetzen` + `restart` →
+  neuer Code. Dazu alle 317 Tests im `python:3.12-slim`-Container, also unter Linux
+  mit den Rechteprüfungen, die unter Windows übersprungen werden. Der Workflow
+  `.github/workflows/docker-probe.yml` startet nur von Hand (Actions → Docker-Probe →
+  Run workflow, oder `gh workflow run docker-probe.yml`). Nach Updates erneut laufen
+  lassen.
+- **Nicht geprüft:** arm64 (Raspberry Pi) gebaut, Push-Zustellung auf einem echten
+  Handy (in Sentinel mit demselben Code belegt), iPhone als Home-Bildschirm-App, die
+  Synology-Schritte der README auf einer fremden NAS.
 
 ---
 
@@ -365,7 +381,7 @@ offenen Punkten eingetragen, dort nichts geändert.
 
 | Prio | Thema | Beschreibung |
 |---|---|---|
-| Hoch | **Erster Docker-Build** | Einmal bauen und starten, bevor die Freunde loslegen. `docker compose up -d --build`, dann Einrichtungscode im Protokoll, Einrichtung, Seite, Push-Test. |
+| Mittel | **Erster Lauf bei den Freunden** | Der Container ist in GitHub Actions (amd64) durchgespielt. Offen sind die echte Umgebung (Synology oder Raspberry Pi mit arm64), die HTTPS-Strecke über deren Router und ein Push-Test aufs Handy. |
 | Mittel | **iPhone** | Push als Home-Bildschirm-App ist eingebaut, aber nicht auf einem echten iPhone getestet. |
 | Mittel | **Leserechte der Merkliste auf einer Synology** | Der Container liest `config/` als UID 10001. Ohne Leserecht „Jeder“ auf dem Ordner meldet die Seite „nicht lesbar“. Die README beschreibt den Fix. |
 | Niedrig | **marktguru und LOGO ohne offizielle Schnittstelle** | Wie in Sentinel. Ändert sich eine Seite, wird die Anzeige gelb. Korrekturen aus Sentinel übernehmen. |
@@ -379,5 +395,6 @@ offenen Punkten eingetragen, dort nichts geändert.
 
 | Datum | Änderung |
 |---|---|
+| 2026-10-24 | Docker-Probelauf in GitHub Actions bestanden (Bau, Einrichtung, Rechte, Neubau mit erhaltenem Zugang, Proxy-Angaben, Zurücksetzen, 317 Tests unter Linux/Python 3.12). Workflow bleibt als manueller Lauf im Repo. Gelungene Einrichtung vergisst die Fehlversuche der IP. 317 Tests |
 | 2026-10-24 | Review umgesetzt (10 Befunde): Sperre je IP und begrenzte Warteschlange bei der Anmeldung, Proxy-Angaben nur aus privaten Netzen, Herkunftsprüfung per `Sec-Fetch-Site`, kein Umweg über `/static/icons/..`, Sessions enden sofort nach dem Zurücksetzen, Zeitlimit-Abbruch zählt als Fehler, „Jetzt prüfen“ wartet vor dem Zeitlimit, Einrichtungscode unabhängig von der Protokollstufe, `write_atomic()`. 316 Tests, Mutationstest 12/12 |
 | 2026-10-24 | **1.0.0**: Erste Version aus Sentinel 2.3.1. Ersteinrichtung mit Einrichtungscode, Argon2id-Hash im Volume, Angebotsseite, Push mit iPhone-Manifest, CSP, README für Nutzer. 286 Tests |
