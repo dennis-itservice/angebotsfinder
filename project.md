@@ -1,8 +1,8 @@
 # Angebotsfinder
 
 > **Konvention:** Diese Datei ist die alleinstehende Wissensbasis des Projekts.
-> Vor jedem Push und nach jeder Erkenntnis aktualisieren. Keine Passwörter oder
-> persönlichen Daten eintragen, das Repo wird mit Freunden geteilt.
+> Vor jedem Push und nach jeder Erkenntnis aktualisieren. Keine Passwörter,
+> persönlichen Daten oder Interna anderer Projekte eintragen, das Repo ist öffentlich.
 > Die Anleitung für Nutzer steht in `README.md`.
 
 ## Übersicht
@@ -15,7 +15,7 @@ schickt neue Angebote einmal als Web-Push aufs Handy. Anmeldung mit einem Zugang
 der beim ersten Aufruf festgelegt wird.
 
 - **Entwicklung:** `H:\Documents\Softwareprojekte\angebotsfinder\`
-- **GitHub:** `dennis-itservice/angebotsfinder` (privat, zum Teilen mit Freunden)
+- **GitHub:** `dennis-itservice/angebotsfinder`, öffentlich seit 25.10.2026
 - **Herkunft:** Sentinel 2.3.1 (`H:\Documents\Softwareprojekte\sentinel\`), Stand
   24.10.2026. Abgleich, marktguru- und LOGO-Abfrage und Push-Versand sind fast
   unverändert übernommen, siehe „Unterschiede zu Sentinel“.
@@ -48,9 +48,7 @@ Docker-Container. Am Ende eine eigene Review.
 Versionen in `requirements.txt` gepinnt, Stand 24.10.2026, `pip-audit` ohne Befund.
 Wie Sentinel 2.3.1, nur **aiohttp 3.14.5 statt 3.14.3**: 3.14.3 hat 8 bekannte
 Lücken (behoben in 3.14.4, u. a. CVE-2026-111064 bis -111066, -111748 bis -111750).
-Die meisten betreffen den aiohttp-Server, den weder Sentinel noch der
-Angebotsfinder nutzen. **Sentinel hat noch 3.14.3** (Hinweis an Dennis, dort nichts
-geändert).
+Die meisten betreffen den aiohttp-Server, den der Angebotsfinder nicht nutzt.
 
 Alle Laufzeit-Pakete gibt es als Wheel für Python 3.12 auf Linux amd64 und arm64
 (geprüft am 24.10.2026 mit `pip download --platform …`). Einzige Ausnahme ist
@@ -371,9 +369,7 @@ umgesetzt, jeder mit Test (Mutationstest 12/12, siehe „Geprüft“).
 | 9 | `PushStore.remove(endpoint=…)` entfernte nebenbei jedes Gerät ohne `id` | Niedrig | Bedingung je Angabe ausgeschrieben |
 | 10 | Atomares Schreiben dreimal kopiert, `monitor._save` ohne Rechte 0600 | Aufräumen | `backend/files.write_atomic()` mit `fsync` und 0600 |
 
-**Betrifft auch Sentinel** (gleicher Code): 1, 5, 8 und 9. Sentinel bindet keinen
-Präfix frei (3 entfällt) und vertraut nur `127.0.0.1` (7 entfällt). In Sentinels
-offenen Punkten eingetragen, dort nichts geändert.
+Welche Befunde auch Sentinel betreffen, steht in Sentinels eigener Doku.
 
 ---
 
@@ -385,9 +381,9 @@ offenen Punkten eingetragen, dort nichts geändert.
 | Mittel | **iPhone** | Push als Home-Bildschirm-App ist eingebaut, aber nicht auf einem echten iPhone getestet. |
 | Mittel | **Leserechte der Merkliste auf einer Synology** | Der Container liest `config/` als UID 10001. Ohne Leserecht „Jeder“ auf dem Ordner meldet die Seite „nicht lesbar“. Die README beschreibt den Fix. |
 | Niedrig | **marktguru und LOGO ohne offizielle Schnittstelle** | Wie in Sentinel. Ändert sich eine Seite, wird die Anzeige gelb. Korrekturen aus Sentinel übernehmen. |
-| Niedrig | **aiohttp in Sentinel** | Sentinel nutzt noch aiohttp 3.14.3 mit 8 bekannten Lücken. Betrifft dort nur den Client, trotzdem beim nächsten Sentinel-Update anheben. |
 | Niedrig | **Sperre je IP im Heimnetz** | Geräte im Heimnetz können `X-Forwarded-For` fälschen und so die Sperre umgehen. Hingenommen, weil es das eigene Netz ist. |
 | Niedrig | **Sessions nur im Speicher** | Nach jedem Neustart des Containers neu anmelden. Bewusst so, siehe Entscheidungen. |
+| Niedrig | **Keine Lizenz** | Das Repo ist öffentlich, hat aber keine Lizenzdatei. Lesen und Forken auf GitHub ist erlaubt, alles Weitere nur mit Dennis' Zustimmung. Soll jeder den Code frei nutzen dürfen, eine `LICENSE` ergänzen (z. B. MIT). |
 
 ---
 
@@ -395,6 +391,7 @@ offenen Punkten eingetragen, dort nichts geändert.
 
 | Datum | Änderung |
 |---|---|
+| 2026-10-25 | Repo öffentlich geschaltet. README: Dateien ohne GitHub-Konto. Anmerkungen zu Sentinel stehen nur noch in Sentinels Doku |
 | 2026-10-24 | Docker-Probelauf in GitHub Actions bestanden (Bau, Einrichtung, Rechte, Neubau mit erhaltenem Zugang, Proxy-Angaben, Zurücksetzen, 317 Tests unter Linux/Python 3.12). Workflow bleibt als manueller Lauf im Repo. Gelungene Einrichtung vergisst die Fehlversuche der IP. 317 Tests |
 | 2026-10-24 | Review umgesetzt (10 Befunde): Sperre je IP und begrenzte Warteschlange bei der Anmeldung, Proxy-Angaben nur aus privaten Netzen, Herkunftsprüfung per `Sec-Fetch-Site`, kein Umweg über `/static/icons/..`, Sessions enden sofort nach dem Zurücksetzen, Zeitlimit-Abbruch zählt als Fehler, „Jetzt prüfen“ wartet vor dem Zeitlimit, Einrichtungscode unabhängig von der Protokollstufe, `write_atomic()`. 316 Tests, Mutationstest 12/12 |
 | 2026-10-24 | **1.0.0**: Erste Version aus Sentinel 2.3.1. Ersteinrichtung mit Einrichtungscode, Argon2id-Hash im Volume, Angebotsseite, Push mit iPhone-Manifest, CSP, README für Nutzer. 286 Tests |

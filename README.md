@@ -44,9 +44,8 @@ Auf 32-Bit-Systemen (ältere Raspberry Pi OS) kann der Bau des Containers scheit
 ### 2.1 Dateien holen
 
 Die Dateien liegen auf GitHub unter
-`https://github.com/dennis-itservice/angebotsfinder`. Ist das Repository privat,
-brauchst du ein GitHub-Konto und eine Einladung. Die Einladung kommt per E-Mail,
-danach bist du auf GitHub angemeldet und siehst die Dateien.
+`https://github.com/dennis-itservice/angebotsfinder`. Das Repository ist öffentlich,
+du brauchst kein GitHub-Konto.
 
 - **Ohne Vorkenntnisse:** Auf der GitHub-Seite oben auf den grünen Knopf **Code**
   klicken, dann **Download ZIP**. Die ZIP-Datei entpacken. Der Ordner heißt dann
